@@ -1,7 +1,6 @@
 var setup = function() {
     let cnv = createCanvas (400, 400);
     cnv.position(500, 100);
-    console.log(acos(0));
 }
 
 var draw = function() {
