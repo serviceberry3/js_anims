@@ -52,14 +52,10 @@ var draw = function() {
                     pixels[gIndex] = p; //pixel's g value
                     pixels[bIndex] = p; //pixel's b value
                     pixels[alphaIndex] = 255;
-
-                    ctr++;
                 }
             }
         }
     } 
-
-    console.log(ctr);
     
     //push new pixels array to canvas
     updatePixels(); 
