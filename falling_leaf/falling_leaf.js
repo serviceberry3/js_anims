@@ -24,9 +24,73 @@ var leafCurveWidth = 16;
 
 var dy = 1;
 
+var currAngle = 0;
+
+var animationPts = [[33, -161],
+[-75, -93], [33, -40], [-77, 8], [36, 64], [-81, 121]];
+
+var beginX = 33;
+var beginY = -161;
+var endX = -75;
+var endY = -93;
+
+let distX = endX - beginX; // X-axis distance to move
+let distY = endY - beginY; // Y-axis distance to move
+let exponent = 2; // Determines the curve
+let x = 0.0; // Current x-coordinate
+let y = 0.0; // Current y-coordinate
+let step = 0.01; // Size of each step along the path
+let pct = 1.0; // Percentage traveled (0.0 to 1.0)
+
+
+let xVal = 0;
+let yVal = 0;
+
+var ctr = 1;
+
+var curvCtr = beginX + distX / 2;
+var xDistToCurvCtr = curvCtr - beginX;
+var xDistToTarg = distX;
+var yDistToTarg = distY;
+
+var easingFactor = 0.05;
+
+var negligiblePctgOfCurveRemaining = 0.01;
+
+var drawHalfCircle = false;
+var halfCircleCtr;
+var halfCircleRad = 5;
+
+var angle;
+var dTheta;
+
+var even;
+
+var leafAng;
+var leafAngScaleFactor = 0.0015;
+
 var setup = function() {
     cleanCanvas();
-    frameRate(20);
+    frameRate(60);
+
+    angle = PI / 2;
+    dTheta = PI / 24;
+
+    leafAng = -PI / 3;
+
+    curvePts = [
+        createVector(0, 0), //32, 94
+        createVector(-9, 26), //23, 120
+        createVector(38, 16), //70, 110
+        createVector(36, 0) //68, 94
+    ];
+    
+    curvePts2 = [
+        createVector(0, 0), //32, 94
+        createVector(3, 6), //35, 100
+        createVector(17, 11), //55, 105
+        createVector(36, 0) //68, 94
+    ];
 
     fillInputWithRandomWindNoise();
     ARFilter(inputWindNoise, outputLeafPos);
@@ -51,67 +115,9 @@ function cleanCanvas() {
     cnv.position(500, 100);
 }
 
-var draw = function() { //draw runs at default of 60 Hz
-    background(242, 200, 255);
-    stroke(0);
-    //box();
-
-    push();
-    stroke(255, 255, 255);
-    strokeWeight(5);
-    /*
-    for (i = 0; i < localMaxima.length; i++) {
-        point(canvCtrX + localMaxima[i][0] * posScaler, localMaxima[i][1]);
-    }
-    for (i = 0; i < localMinima.length; i++) {
-        point(canvCtrX + localMinima[i][0] * posScaler, localMinima[i][1]);
-    }*/
-    pop();
-
-    if (lastPtY <= canvDim / 2) {
-        indexer = constrain(frameCount - 1, 0, outputLeafPos.length - 1);
-
-        leafXVal = canvCtrX + outputLeafPos[indexer][0] * posScaler;
-        //leafYVal = frameCount + curver[frameCount % curver.length] * curveScaler;
-        yValToSubtract = constrain(0.01 * exp(0.5 * outputLeafPos[indexer][1] - 1), 0, 20);
-        //console.log(yValToSubtract);
-        
-        leafYVal = lastPtY + dy - yValToSubtract;
-
-        leafYVal = constrain(leafYVal, -canvDim / 2, canvDim / 2);
-        leafXVal = constrain(leafXVal, -canvDim / 2, canvDim / 2);
-
-        strokeWeight(1);
-        //line(lastPtX, lastPtY, leafXVal, leafYVal);
-
-        push();
-        strokeWeight(1);
-        //stroke(200, 50, 100);
-        //point(leafXVal, leafYVal);
-        pop();
-
-        //ellipse(leafXVal, leafYVal, 5);
-
-        lastPtX = leafXVal;
-        lastPtY = leafYVal;;
-    }
-
-    leafCurveOrigX = leafXVal - leafCurveWidth;
-    leafCurveOrigY = leafYVal - leafCurveHeight;
-
-    curvePts = [
-        createVector(leafCurveOrigX, leafCurveOrigY), //32, 94
-        createVector(leafCurveOrigX - 9, leafCurveOrigY + 26), //23, 120
-        createVector(leafCurveOrigX + 38, leafCurveOrigY + 16), //70, 110
-        createVector(leafCurveOrigX + 36, leafCurveOrigY) //68, 94
-    ];
-
-    curvePts2 = [
-        createVector(leafCurveOrigX, leafCurveOrigY), //32, 94
-        createVector(leafCurveOrigX + 3, leafCurveOrigY + 6), //35, 100
-        createVector(leafCurveOrigX + 17, leafCurveOrigY + 11), //55, 105
-        createVector(leafCurveOrigX + 36, leafCurveOrigY) //68, 94
-    ];
+function drawLeaf(xOrigin, yOrigin) {
+    translate(xOrigin, yOrigin);
+    rotate(leafAng);
 
     push();
     stroke(0);
@@ -131,6 +137,136 @@ var draw = function() { //draw runs at default of 60 Hz
     line(curvePts[3].x, curvePts[3].y, curvePts[3].x + 5, curvePts[3].y - 5);
 
     pop();
+}
+
+function runCurveAnimation(startPt, endPt) {
+    //first we want the leaf to move along a small half-circle 
+    drawHalfCircle = true;
+    angle = PI / 2;
+    halfCircleCtr = [startPt[0], startPt[1] + halfCircleRad];
+
+    beginX = even ? startPt[0] + halfCircleRad * cos(PI / 4) : startPt[0] - halfCircleRad * cos(PI / 4);
+    beginY = startPt[1] + halfCircleRad + halfCircleRad * sin(PI / 4);
+    endX = endPt[0];
+    endY = endPt[1];
+
+    distX = endX - beginX;
+    distY = endY - beginY;
+
+    curvCtr = beginX + distX / 2;
+    xDistToCurvCtr = curvCtr - beginX;
+
+    pct = 1.0;
+
+    x = beginX;
+    y = beginY;
+
+    xDistToTarg = distX;
+    yDistToTarg = distY;
+}
+
+var draw = function() { //draw runs at default of 60 Hz
+    background(242, 200, 255);
+    stroke(0);
+
+    if (drawHalfCircle) {
+        if ((even && round(angle, 2) == round(5 * PI / 4, 2)) || (!even && round(angle, 2) == round(-PI / 4, 2))) drawHalfCircle = false;
+        xVal = halfCircleCtr[0] + halfCircleRad * 1.5 * cos(angle);
+        yVal = halfCircleCtr[1] - halfCircleRad * sin(angle);
+        angle = (even) ? angle + dTheta : angle - dTheta;
+        drawLeaf(xVal, yVal);
+    }
+    else {
+        pct -= step * (abs(distX / 2) - abs(xDistToCurvCtr) + 1) * easingFactor + 0.005;
+        if (pct > negligiblePctgOfCurveRemaining) {
+            x = endX - pct * distX;
+            y = endY - pow(pct, exponent) * distY * xDistToTarg / distX;
+            xDistToCurvCtr = curvCtr - x;
+            xDistToTarg = endX - x;
+            yDistToTarg = endY - y;
+
+            if (ctr == 1) {
+                leafAng += PI/12 * abs(xDistToTarg) * leafAngScaleFactor;
+            }
+            else if (even) {
+                leafAng -= PI/30 * abs(xDistToTarg) * leafAngScaleFactor;
+            }
+            else {
+                leafAng += PI/30 * abs(xDistToTarg) * leafAngScaleFactor;
+            }
+
+            drawLeaf(x, y);
+        }
+        //whenever pct hits 0, we've completed a curve. draw the next one, if there is one
+        else if (ctr < 5) {
+            drawLeaf(x, y);
+
+            runCurveAnimation([x, y], animationPts[ctr + 1]);
+            ctr++;
+            even = ctr % 2 == 0 ? true : false;            
+        }
+    }
+}
+
+function drawViaARMethodWithRandomWindNoise() {
+    push();
+    stroke(255, 255, 255);
+    strokeWeight(5);
+    
+    for (i = 0; i < localMaxima.length; i++) {
+        point(canvCtrX + localMaxima[i][0] * posScaler, localMaxima[i][1]);
+    }
+    for (i = 0; i < localMinima.length; i++) {
+        point(canvCtrX + localMinima[i][0] * posScaler, localMinima[i][1]);
+    }
+
+    pop();
+
+    if (lastPtY <= canvDim / 2) {
+        indexer = constrain(frameCount - 1, 0, outputLeafPos.length - 1);
+
+        leafXVal = canvCtrX + outputLeafPos[indexer][0] * posScaler;
+        //leafYVal = frameCount + curver[frameCount % curver.length] * curveScaler;
+        yValToSubtract = constrain(0.005 * outputLeafPos[indexer][1] * outputLeafPos[indexer][1], 0, 10);
+        //console.log(yValToSubtract);
+        
+        leafYVal = lastPtY + dy - yValToSubtract;
+
+        leafYVal = constrain(leafYVal, -canvDim / 2, canvDim / 2);
+        leafXVal = constrain(leafXVal, -canvDim / 2, canvDim / 2);
+
+        strokeWeight(1);
+        //line(lastPtX, lastPtY, leafXVal, leafYVal);
+
+        push();
+        strokeWeight(1);
+        stroke(200, 50, 100);
+        //point(leafXVal, leafYVal);
+        pop();
+
+        //ellipse(leafXVal, leafYVal, 5);
+
+        leafCurveOrigX = leafXVal - leafCurveWidth;
+        leafCurveOrigY = leafYVal - leafCurveHeight;
+        
+        translate(leafCurveOrigX, leafCurveOrigY);
+
+        if (leafXVal <= lastPtX) {
+            currAngle += 0.5 * yValToSubtract;
+        }
+        else {
+            currAngle -= 0.5 * yValToSubtract;
+        }
+
+        currAngle = constrain(currAngle, -PI/4, PI/4);
+
+        rotate(currAngle);
+
+        lastPtX = leafXVal;
+        lastPtY = leafYVal;
+    }
+
+    drawLeaf();
 }
 
 function fillInputWithRandomWindNoise() {
